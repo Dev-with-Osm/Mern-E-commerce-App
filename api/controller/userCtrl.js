@@ -2,6 +2,7 @@ const { generateToken } = require("../config/jwtToken.js");
 const User = require("../models/userModel.js");
 const Product = require("../models/productModel.js");
 const Cart = require("../models/cartModel.js");
+const Coupon = require("../models/couponModel.js");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const validateMongoDbId = require("../utils/ValidateMongoDbId.js");
@@ -355,7 +356,8 @@ const userCart = asyncHandler(async (req, res) => {
     //! check if user already have products in cart
     const alreadyExistCart = await Cart.findOne({ orderBy: user._id });
     if (alreadyExistCart) {
-      alreadyExistCart.remove();
+      await Cart.deleteOne({ orderBy: user._id });
+      // TODO need to back to this point
     }
     for (let i = 0; i < cart.length; i++) {
       let object = {};
@@ -407,6 +409,34 @@ const emptyCart = asyncHandler(async (req, res) => {
   }
 });
 
+const applyCoupon = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { coupon } = req.body;
+  validateMongoDbId(_id);
+  const validCoupon = await Coupon.findOne({ name: coupon });
+  console.log(validCoupon);
+  if (validCoupon === null) {
+    throw new Error("Invaid Coupon");
+  }
+  const user = await User.findOne({ _id });
+  let { products, cartTotal } = await Cart.findOne({
+    orderBy: user._id,
+  }).populate("products.product");
+  let totalAfterDiscount = (
+    cartTotal -
+    (cartTotal * validCoupon.discount) / 100
+  ).toFixed(2);
+  await Cart.findOneAndUpdate(
+    { orderBy: user._id },
+    {
+      totalAfterDiscount,
+    },
+    { new: true }
+  );
+
+  res.json(totalAfterDiscount);
+});
+
 module.exports = {
   createUser,
   loginUserCtrl,
@@ -427,4 +457,5 @@ module.exports = {
   userCart,
   getUserCart,
   emptyCart,
+  applyCoupon,
 };
