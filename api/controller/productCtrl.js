@@ -3,7 +3,10 @@ const Product = require("../models/productModel.js");
 const User = require("../models/userModel.js");
 const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/ValidateMongoDbId.js");
-const cloudinaryUploadImg = require("../utils/cloudInary.js");
+const {
+  cloudinaryUploadImg,
+  cloudinaryDeleteImg,
+} = require("../utils/cloudInary.js");
 const fs = require("fs");
 
 //Add new product
@@ -202,8 +205,6 @@ const rating = asyncHandler(async (req, res) => {
 
 // upload  image to cloudinary and save the url in database
 const uploadImages = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  validateMongoDbId(id);
   try {
     const uploader = (path) => cloudinaryUploadImg(path, "images");
     const urls = [];
@@ -214,20 +215,29 @@ const uploadImages = asyncHandler(async (req, res) => {
       urls.push(newpath);
       fs.unlinkSync(path);
     }
-    const findProduct = await Product.findByIdAndUpdate(
-      id,
-      {
-        images: urls.map((file) => {
-          return file;
-        }),
-      },
-      { new: true }
-    );
-    res.json(findProduct);
+    const images = urls.map((file) => {
+      return file;
+    });
+    res.json(images);
   } catch (error) {
     throw new Error(error);
   }
 });
+
+// delete  image from cloudinary and delete the url from database
+const deleteImages = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleter = cloudinaryDeleteImg(id, "images");
+    res.json({
+      message: "Deleted",
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+//
 
 module.exports = {
   createProduct,
@@ -238,4 +248,5 @@ module.exports = {
   addToWishlist,
   rating,
   uploadImages,
+  deleteImages,
 };
